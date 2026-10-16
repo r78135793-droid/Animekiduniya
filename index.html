@@ -48,21 +48,42 @@ const anime=[
 {id:12,title:'Blue Lock',year:2022,score:8.1,episodes:38,seasons:'2 seasons',season:'Fall',genres:['Sports','Drama'],type:'TV Series',status:'Ongoing',studio:'Eight Bit',language:['Japanese','English Dub','Hindi Dub'],subs:['English','Hindi'],symbol:'青',c1:'#45a5d0',c2:'#222b66',synopsis:'Strikers from across Japan enter an extreme training program designed to create the country’s most selfish and decisive goal scorer. Competition pushes each player to reinvent their game.'}
 ];
 const $=id=>document.getElementById(id);let activeGenre='';
-  async function loadPosters(){
-  for(const a of anime){
-    try{
-      const r=await fetch(
-        'https://api.jikan.moe/v4/anime?q='+
-        encodeURIComponent(a.title)+'&limit=1'
+  
+async function loadPosters() {
+  for (const a of anime) {
+    try {
+      const response = await fetch(
+        'https://api.jikan.moe/v4/anime?q=' +
+        encodeURIComponent(a.title) + '&limit=5'
       );
-      const d=await r.json();
-      a.poster ||= d.data?.[0]?.images?.jpg?.large_image_url;
-    }catch(e){}
-    await new Promise(r=>setTimeout(r,400));
+
+      if (!response.ok) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        continue;
+      }
+
+      const result = await response.json();
+      const matches = result.data || [];
+
+      const match = matches.find(item =>
+        item.title?.toLowerCase() === a.title.toLowerCase()
+      ) || matches[0];
+
+      if (!a.poster && match) {
+        a.poster = match.images?.jpg?.large_image_url ||
+                   match.images?.jpg?.image_url;
+      }
+
+      render();
+    } catch (error) {
+      console.log('Poster load failed:', a.title, error);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1200));
   }
-  render();
-}loadPosters();
-function filtered(){const q=$('search').value.trim().toLowerCase(),g=$('genre').value||activeGenre,l=$('language').value,s=$('season').value,sort=$('sort').value;let list=anime.filter(a=>(!q||(a.title+' '+a.genres.join(' ')+' '+a.studio+' '+a.synopsis).toLowerCase().includes(q))&&(!g||a.genres.includes(g))&&(!l||a.language.includes(l))&&(!s||a.season===s));if(sort==='rating')list.sort((a,b)=>b.score-a.score);if(sort==='title')list.sort((a,b)=>a.title.localeCompare(b.title));if(sort==='episodes')list.sort((a,b)=>b.episodes-a.episodes);return list}
+}
+loadPosters();
+  function filtered(){const q=$('search').value.trim().toLowerCase(),g=$('genre').value||activeGenre,l=$('language').value,s=$('season').value,sort=$('sort').value;let list=anime.filter(a=>(!q||(a.title+' '+a.genres.join(' ')+' '+a.studio+' '+a.synopsis).toLowerCase().includes(q))&&(!g||a.genres.includes(g))&&(!l||a.language.includes(l))&&(!s||a.season===s));if(sort==='rating')list.sort((a,b)=>b.score-a.score);if(sort==='title')list.sort((a,b)=>a.title.localeCompare(b.title));if(sort==='episodes')list.sort((a,b)=>b.episodes-a.episodes);return list}
 function render(){const list=filtered();$('grid').innerHTML=list.map(a=>`<article class="anime-card" tabindex="0" role="button" aria-label="Details for ${a.title}" data-id="${a.id}"><div class="poster" style="--c1:${a.c1};--c2:${a.c2}">${a.poster?`<img src="${a.poster}" alt="${a.title} poster" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`:''}<span class="symbol">${a.poster?'':a.symbol}</span><span class="symbol">${a.symbol}</span><span class="score">★ ${a.score.toFixed(1)}</span><div class="pname">${a.title}</div></div><div class="cardbody"><div class="cardtitle">${a.title}</div><div class="subline">${a.year} · ${a.type}</div><div class="tags">${a.genres.slice(0,3).map(g=>`<span class="tag">${g}</span>`).join('')}</div><div class="cardfoot"><span><b>${a.episodes===1&&a.type==='Movie'?'Movie':a.episodes+' eps'}</b></span><span>${a.language.includes('Hindi Dub')?'Hindi dub':'Sub available'}</span></div></div></article>`).join('');$('resultCount').textContent=`${list.length} title${list.length===1?'':'s'} · sample catalogue`;$('empty').style.display=list.length?'none':'block';$('grid').style.display=list.length?'grid':'none';document.querySelectorAll('.anime-card').forEach(c=>{const open=()=>showDetail(+c.dataset.id);c.addEventListener('click',open);c.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}})})}
 function showDetail(id){const a=anime.find(x=>x.id===id);$('modal').innerHTML=`<button class="close" aria-label="Close details">×</button><div class="detailtop"><div class="detailposter" style="--c1:${a.c1};--c2:${a.c2}">${a.poster?`<img src="${a.poster}" alt="${a.title} poster" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`:a.title}</div><div><div class="eyebrow">${a.type} · ${a.year}</div><h2 class="detailtitle">${a.title}</h2><div class="detailmeta">${a.studio} · ${a.status}</div><div class="ratingline"><span class="pill">★ <b>${a.score.toFixed(1)}</b> / 10</span><span class="pill">${a.episodes===1&&a.type==='Movie'?'Movie':a.episodes+' episodes'}</span><span class="pill">${a.seasons}</span></div><div class="tags">${a.genres.map(g=>`<span class="tag">${g}</span>`).join('')}</div><p class="synopsis">${a.synopsis}</p></div></div><div class="detailgrid"><div class="infobox"><label>Format</label><strong>${a.type}</strong></div><div class="infobox"><label>Release year</label><strong>${a.year}</strong></div><div class="infobox"><label>Season / series</label><strong>${a.seasons}</strong></div><div class="infobox"><label>Audio listed in demo</label><strong>${a.language.join(', ')}</strong></div><div class="infobox"><label>Subtitle languages</label><strong>${a.subs.join(', ')}</strong></div><div class="infobox"><label>Studio</label><strong>${a.studio}</strong></div></div><div class="notice">Demo data for the website concept. Dub/sub availability, scores, episode totals and season labels should be verified against current sources before publishing.</div>`;$('modalBack').classList.add('show');$('modal').querySelector('.close').onclick=closeDetail}
 function closeDetail(){$('modalBack').classList.remove('show')}
